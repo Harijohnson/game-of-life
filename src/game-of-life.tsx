@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Card } from "@/components/ui/card"
-import { Play, Pause, RotateCcw } from "lucide-react"
+import { Play, Pause, RotateCcw, Info } from "lucide-react"
 
 const CELL_SIZE = 20
 
@@ -15,21 +14,55 @@ export default function ConwaysGameOfLife() {
   const [speed, setSpeed] = useState([500])
   const [isDragging, setIsDragging] = useState(false)
   const [dragMode, setDragMode] = useState<"paint" | "erase">("paint")
+  const [showRules, setShowRules] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const gridRef = useRef<HTMLDivElement>(null)
 
-  // Calculate grid dimensions based on container size
+  // Calculate grid dimensions based on container size with responsive design
   const getGridDimensions = useCallback(() => {
-    const containerHeight = window.innerHeight - 40 // Account for padding
-    const containerWidth = (window.innerWidth * 0.75) - 40 // 75% width minus padding
-    const rows = Math.floor(containerHeight / CELL_SIZE)
-    const cols = Math.floor(containerWidth / CELL_SIZE)
-    return { rows, cols }
+    const windowHeight = typeof window !== "undefined" ? window.innerHeight : 800
+    const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1200
+
+    // Responsive breakpoints
+    const isMobile = windowWidth < 768
+    const isTablet = windowWidth >= 768 && windowWidth < 1024
+    const isDesktop = windowWidth >= 1024
+
+    let containerHeight: number
+    let containerWidth: number
+
+    if (isMobile) {
+      // Mobile: Stack vertically, smaller grid
+      containerHeight = Math.max(windowHeight * 0.3, 250) // Reduced from 0.4 to 0.3 and 300 to 250
+      containerWidth = Math.max(windowWidth - 40, 300)
+    } else if (isTablet) {
+      // Tablet: Medium sized grid
+      containerHeight = Math.max(windowHeight - 200, 400)
+      containerWidth = Math.max(windowWidth * 0.5, 400)
+    } else {
+      // Desktop: Larger grid, more square-shaped
+      containerHeight = Math.max(windowHeight - 200, 500)
+      containerWidth = Math.max(windowHeight - 200, 500) // Make it more square by using height
+    }
+
+    // Calculate grid dimensions with bounds
+    const rows = Math.max(Math.min(Math.floor(containerHeight / CELL_SIZE), isMobile ? 25 : 40), 8) // Added mobile-specific limit
+    const cols = Math.max(Math.min(Math.floor(containerWidth / CELL_SIZE), 40), 10)
+
+    return { rows, cols, isMobile, isTablet, isDesktop }
   }, [])
 
-  // Initialize empty grid
+  // Initialize empty grid with safety checks
   const initializeGrid = useCallback(() => {
     const { rows, cols } = getGridDimensions()
+
+    if (rows <= 0 || cols <= 0 || rows > 100 || cols > 100) {
+      console.warn("Invalid grid dimensions, using defaults")
+      return Array(15)
+        .fill(null)
+        .map(() => Array(20).fill(false))
+    }
+
     return Array(rows)
       .fill(null)
       .map(() => Array(cols).fill(false))
@@ -86,12 +119,9 @@ export default function ConwaysGameOfLife() {
           const neighbors = countNeighbors(currentGrid, row, col)
           const isAlive = currentGrid[row][col]
 
-          // Conway's rules (B3/S23)
           if (isAlive) {
-            // Live cell with 2-3 neighbors survives
             newGrid[row][col] = neighbors === 2 || neighbors === 3
           } else {
-            // Dead cell with exactly 3 neighbors becomes alive
             newGrid[row][col] = neighbors === 3
           }
         }
@@ -193,145 +223,166 @@ export default function ConwaysGameOfLife() {
     setIsRunning(!isRunning)
   }, [isRunning])
 
+  const { isMobile, isTablet } = getGridDimensions()
+
   if (grid.length === 0) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 flex align-middle p-5 justify-between items-center gap-10 m-auto">
-      {/* Left Control Panel - 25% */}
-      <div className="min-w-[29vw] max-w-[30vw] bg-white shadow-lg border-r border-gray-200 rounded-3xl  max-h-[83vh]">
-        <div className="p-3 h-full flex flex-col">
-          <div className="mb-8">
-            <h1 className="text-sm font-bold text-gray-800 mb-2">Game of Life</h1>
-            <p className="text-sm text-gray-600">A cellular automaton simulation</p>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 lg:p-8 mx-auto">
+      <div
+        className={`
+        relative z-10 w-full max-w-7xl
+        ${isMobile ? "flex flex-col gap-6" : "flex items-center justify-center gap-8 lg:gap-16"}
+      `}
+      >
+        {/* Left Control Panel */}
+        <div
+          className={`
+          bg-transparent flex flex-col items-center space-y-4 lg:space-y-6
+          ${isMobile ? "w-full order-2" : isTablet ? "w-72" : "w-80"}
+        `}
+        >
+          <div className="text-center">
+            <h1 className={`font-bold text-black mb-4 lg:mb-8 ${isMobile ? "text-xl" : "text-2xl"}`}>Game Of Life</h1>
+          </div>
+
+          {/* Control Buttons */}
+          <div className={`space-y-3 lg:space-y-4 w-full ${isMobile ? "max-w-sm" : "max-w-xs"}`}>
+            <Button
+              onClick={toggleRunning}
+              className={`w-full bg-black hover:bg-gray-800 text-white rounded-full font-medium
+                ${isMobile ? "h-10 text-base" : "h-12 text-lg"}
+              `}
+            >
+              {isRunning ? (
+                <>
+                  <Pause className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                  Play
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={clearGrid}
+              className={`w-full bg-black hover:bg-gray-800 text-white rounded-full font-medium
+                ${isMobile ? "h-10 text-base" : "h-12 text-lg"}
+              `}
+            >
+              <RotateCcw className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+              Clear Grid
+            </Button>
+          </div>
+
+          {/* Speed Slider */}
+          <div className={`w-full space-y-2 ${isMobile ? "max-w-sm" : "max-w-xs"}`}>
+            <div className="flex justify-between items-center text-sm text-gray-700">
+              <span>Slow</span>
+              <span>Fast</span>
+            </div>
+            <div className="relative">
+              <Slider
+                value={[2100 - speed[0]]}
+                onValueChange={(value) => setSpeed([2100 - value[0]])}
+                max={2000}
+                min={100}
+                step={100}
+                className="w-full"
+              />
+            </div>
+            <div className="text-center text-xs text-gray-600">{speed[0]}ms</div>
           </div>
 
           {/* Statistics */}
-          <div className="mb-8 space-y-4">
-            <Card className="p-4 bg-blue-50 border-blue-200">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{generation}</div>
-                <div className="text-sm text-blue-700">Generation</div>
-              </div>
-            </Card>
-            <Card className="p-4 bg-green-50 border-green-200">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{getPopulation(grid)}</div>
-                <div className="text-sm text-green-700">Live Cells</div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Controls */}
-          <div className="space-y-6 flex-1">
-            <div className="space-y-4">
-              <Button
-                onClick={toggleRunning}
-                variant={isRunning ? "destructive" : "default"}
-                size="lg"
-                className="w-full flex items-center justify-center gap-2"
-              >
-                {isRunning ? (
-                  <>
-                    <Pause className="w-5 h-5" />
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5" />
-                    Start
-                  </>
-                )}
-              </Button>
-
-              <Button 
-                onClick={clearGrid} 
-                variant="outline" 
-                size="lg" 
-                className="w-full flex items-center justify-center gap-2 text-white"
-              >
-                <RotateCcw className="w-5 h-5" />
-                Clear Grid
-              </Button>
+          <div className={`space-y-2 lg:space-y-3 text-center ${isMobile ? "flex gap-8" : ""}`}>
+            <div className={`text-black ${isMobile ? "text-base" : "text-lg"}`}>
+              <span className="font-medium">Generations : </span>
+              <span className="font-bold">{generation}</span>
             </div>
-
-            {/* Speed Control */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Speed</span>
-                <span className="text-sm text-gray-500">{speed[0]}ms</span>
-              </div>
-              <Slider 
-                value={speed} 
-                onValueChange={setSpeed} 
-                max={2000} 
-                min={100} 
-                step={100} 
-                className="w-full" 
-              />
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>Fast</span>
-                <span>Slow</span>
-              </div>
+            <div className={`text-black ${isMobile ? "text-base" : "text-lg"}`}>
+              <span className="font-medium">Population : </span>
+              <span className="font-bold">{getPopulation(grid)}</span>
             </div>
           </div>
 
-          {/* Instructions */}
-          <div className="mt-8 pt-6 border-t border-gray-200 hidden">
-            <h3 className="font-semibold text-gray-700 mb-3">How to Use</h3>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p>• Click cells to toggle them on/off</p>
-              <p>• Drag to paint multiple cells</p>
-              <p>• Press Start to begin simulation</p>
-            </div>
-            
-            <h3 className="font-semibold text-gray-700 mb-2 mt-4">Rules</h3>
-            <div className="text-xs text-gray-500 space-y-1">
-              <p>• Live cells with 2-3 neighbors survive</p>
-              <p>• Dead cells with exactly 3 neighbors become alive</p>
-              <p>• All other cells die or stay dead</p>
-            </div>
+          {/* Info Button with Hover Rules */}
+          <div className="relative bg-white">
+            <Button
+              variant="outline"
+              size="icon"
+              className="w-10 h-10 rounded-full !border-2 border-black !bg-white !hover:bg-gray-200 !hover:outline-none !focus:outline-none !focus:ring-2 !focus:ring-black !hover:border-transparent" 
+              onMouseEnter={() => setShowRules(true)}
+              onMouseLeave={() => setShowRules(false)}
+            >
+              <Info className="!w-8 !h-8 text-black" />
+            </Button>
+
+            {showRules && (
+              <div
+                className={`absolute bg-black text-white p-4 rounded-lg shadow-lg w-64 text-sm z-20
+                ${isMobile ? "bottom-12 left-1/2 transform -translate-x-1/2" : "bottom-12 left-1/2 transform -translate-x-1/2"}
+              `}
+              >
+                <h3 className="font-semibold mb-2">Conway's Rules:</h3>
+                <ul className="space-y-1 text-xs">
+                  <li>• Live cells with 2-3 neighbors survive</li>
+                  <li>• Dead cells with exactly 3 neighbors become alive</li>
+                  <li>• All other cells die or stay dead</li>
+                </ul>
+                <div className="mt-2 pt-2 border-t border-gray-600">
+                  <p className="text-xs">Click cells to toggle • Drag to paint</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Right Grid Area - 75% */}
-      <div className=" flex items-center justify-center align-middle ">
-        <div
-          ref={gridRef}
-          className="bg-white border-2 border-gray-300 rounded-3xl overflow-hidden select-none shadow-lg p-4 max-w-[58vw] max-h-[85vh]"
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
-          <div className="grid gap-0 h-full w-full overflow-hidden">
-            {grid.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex">
-                {row.map((cell, colIndex) => (
-                  <div
-                    key={`${rowIndex}-${colIndex}`}
-                    className={`
-                      border border-gray-200 cursor-pointer transition-all duration-75
-                      hover:bg-gray-100 flex items-center justify-center
-                      ${cell ? "bg-black" : "bg-white"}
-                    `}
-                    style={{
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
-                      minWidth: CELL_SIZE,
-                      minHeight: CELL_SIZE,
-                    }}
-                    onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
-                    onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
-                  >
-                    {cell && (
-                      <div
-                        className="w-full h-full bg-black rounded-sm transition-all duration-150"
-                        style={{ transform: "scale(0.9)" }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
+        {/* Right Grid Area */}
+        <div className={`flex items-center justify-center ${isMobile ? "order-1" : ""}`}>
+          <div
+            ref={gridRef}
+            className="bg-black rounded-2xl lg:rounded-3xl overflow-hidden select-none shadow-lg"
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{
+              padding: isMobile ? "12px" : isTablet ? "16px" : "25px",
+            }}
+          >
+            <div className="grid gap-0 h-full w-full overflow-hidden">
+              {grid.map((row, rowIndex) => (
+                <div key={rowIndex} className="flex">
+                  {row.map((cell, colIndex) => (
+                    <div
+                      key={`${rowIndex}-${colIndex}`}
+                      className={`
+                        border border-gray-300 cursor-pointer transition-all duration-75
+                        hover:bg-gray-100 flex items-center justify-center
+                        ${cell ? "bg-black" : "bg-white"}
+                      `}
+                      style={{
+                        width: CELL_SIZE,
+                        height: CELL_SIZE,
+                        minWidth: CELL_SIZE,
+                        minHeight: CELL_SIZE,
+                      }}
+                      onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
+                      onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
+                    >
+                      {cell && (
+                        <div
+                          className="w-full h-full bg-black rounded-sm transition-all duration-150"
+                          style={{ transform: "scale(0.9)" }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
