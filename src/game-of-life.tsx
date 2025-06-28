@@ -250,7 +250,7 @@ export default function ConwaysGameOfLife() {
           <div className={`space-y-3 lg:space-y-4 w-full ${isMobile ? "max-w-sm" : "max-w-xs"}`}>
             <Button
               onClick={toggleRunning}
-              className={`w-full bg-black hover:bg-gray-800 text-white rounded-full font-medium
+              className={`w-full !bg-black !hover:bg-gray-800 text-white rounded-full font-medium
                 ${isMobile ? "h-10 text-base" : "h-12 text-lg"}
               `}
             >
@@ -269,7 +269,7 @@ export default function ConwaysGameOfLife() {
 
             <Button
               onClick={clearGrid}
-              className={`w-full bg-black hover:bg-gray-800 text-white rounded-full font-medium
+              className={`w-full !bg-black !hover:bg-gray-800 text-white rounded-full font-medium
                 ${isMobile ? "h-10 text-base" : "h-12 text-lg"}
               `}
             >
@@ -345,7 +345,7 @@ export default function ConwaysGameOfLife() {
         <div className={`flex items-center justify-center ${isMobile ? "order-1" : ""}`}>
           <div
             ref={gridRef}
-            className="bg-black rounded-2xl lg:rounded-3xl overflow-hidden select-none shadow-lg"
+            className="bg-black rounded-xl lg:rounded-xl overflow-hidden select-none shadow-lg"
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             style={{
